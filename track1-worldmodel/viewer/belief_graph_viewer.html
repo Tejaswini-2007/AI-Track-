@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Belief-Graph Viewer</title>
+<style>
+  :root {
+    --ink: #1c2b3a;
+    --ink-soft: #43586b;
+    --paper: #f6f3ea;
+    --paper-line: #d8d2c0;
+    --accent: #b3541e;
+    --accent-soft: #e8d9c8;
+    --confirm: #2f6f4e;
+    --mono: "IBM Plex Mono", "Courier New", monospace;
+    --serif: "Iowan Old Style", "Georgia", serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    background-image:
+      repeating-linear-gradient(var(--paper-line) 0 1px, transparent 1px 28px);
+    color: var(--ink);
+    font-family: var(--serif);
+    padding: 48px 24px 80px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  header {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 18px;
+    margin-bottom: 32px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  h1 {
+    font-size: 34px;
+    margin: 0 0 6px;
+    font-weight: 600;
+  }
+  .subtitle { color: var(--ink-soft); font-size: 15px; }
+
+  .upload-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin: 28px 0 40px;
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .upload-box {
+    flex: 1;
+    min-width: 240px;
+    border: 1.5px dashed var(--ink-soft);
+    padding: 16px;
+    background: rgba(255,255,255,0.35);
+  }
+  .upload-box label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 11px;
+  }
+  input[type="file"] { font-family: var(--mono); font-size: 12px; }
+  .status { margin-top: 8px; font-size: 12px; }
+  .status.ok { color: var(--confirm); }
+
+  section { margin-bottom: 44px; }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .section-num {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 2px 7px;
+  }
+  h2 { font-size: 20px; margin: 0; }
+
+  .rooms-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 14px;
+  }
+  .room-card {
+    background: #fffdf7;
+    border: 1px solid var(--paper-line);
+    border-left: 4px solid var(--ink);
+    padding: 14px 16px;
+  }
+  .room-name {
+    font-weight: 700;
+    font-size: 15px;
+    text-transform: capitalize;
+    margin-bottom: 8px;
+  }
+  .room-conns, .room-objs {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    line-height: 1.7;
+  }
+  .room-objs { margin-top: 6px; color: var(--accent); }
+  .tag {
+    display: inline-block;
+    background: var(--accent-soft);
+    padding: 1px 6px;
+    border-radius: 2px;
+    margin-left: 4px;
+    font-size: 10px;
+  }
+
+  .journal-entry {
+    background: #fffdf7;
+    border: 1px solid var(--paper-line);
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    position: relative;
+  }
+  .journal-entry::before {
+    content: "CORRECTED BELIEF";
+    position: absolute;
+    top: -9px;
+    left: 16px;
+    background: var(--paper);
+    padding: 0 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+  }
+  .je-node { font-weight: 700; margin-bottom: 10px; font-size: 15px; }
+  .je-row { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 13px; margin-bottom: 6px; }
+  .old-val { text-decoration: line-through; color: #a33; }
+  .arrow { color: var(--ink-soft); }
+  .new-val { color: var(--confirm); font-weight: 700; }
+  .je-meta { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); margin-top: 8px; }
+  .je-reason { font-style: italic; color: var(--ink-soft); font-size: 13px; margin-top: 6px; }
+
+  .empty-state {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink-soft);
+    border: 1px dashed var(--paper-line);
+    padding: 20px;
+    text-align: center;
+  }
+
+  .placeholder {
+    text-align: center;
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 60px 20px;
+    border: 1px dashed var(--paper-line);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Track 1 — World Modeling for Autonomous Agents</div>
+    <h1>Belief-Graph Viewer</h1>
+    <div class="subtitle">A human-readable inspection of the agent's world model and its self-corrections.</div>
+  </header>
+
+  <div class="upload-row">
+    <div class="upload-box">
+      <label>world_model_final.json</label>
+      <input type="file" id="wmFile" accept=".json">
+      <div class="status" id="wmStatus"></div>
+    </div>
+    <div class="upload-box">
+      <label>contradiction_journal.json</label>
+      <input type="file" id="cjFile" accept=".json">
+      <div class="status" id="cjStatus"></div>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <span class="section-num">01</span>
+      <h2>Known World — Rooms & Objects</h2>
+    </div>
+    <div id="roomsOutput" class="placeholder">Load world_model_final.json to see the explored map.</div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="section-num">02</span>
+      <h2>Contradiction Journal</h2>
+    </div>
+    <div id="journalOutput" class="placeholder">Load contradiction_journal.json to see corrected beliefs.</div>
+  </section>
+
+</div>
+
+<script>
+  document.getElementById('wmFile').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        const data = JSON.parse(evt.target.result);
+        renderRooms(data);
+        document.getElementById('wmStatus').textContent = 'Loaded ✓';
+        document.getElementById('wmStatus').className = 'status ok';
+      } catch (err) {
+        document.getElementById('wmStatus').textContent = 'Invalid JSON file';
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById('cjFile').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        const data = JSON.parse(evt.target.result);
+        renderJournal(data);
+        document.getElementById('cjStatus').textContent = 'Loaded ✓';
+        document.getElementById('cjStatus').className = 'status ok';
+      } catch (err) {
+        document.getElementById('cjStatus').textContent = 'Invalid JSON file';
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  function renderRooms(data) {
+    const rooms = data.rooms || {};
+    const objects = data.objects || {};
+    const out = document.getElementById('roomsOutput');
+
+    const roomNames = Object.keys(rooms);
+    if (roomNames.length === 0) {
+      out.innerHTML = '<div class="empty-state">No rooms recorded.</div>';
+      return;
+    }
+
+    let html = '<div class="rooms-grid">';
+    roomNames.forEach(function(roomName) {
+      const room = rooms[roomName];
+      const conns = room.connections || {};
+      const connLines = Object.keys(conns).map(function(dir) {
+        return dir + ' → ' + conns[dir].replace(/_/g, ' ');
+      }).join('<br>') || 'no known exits';
+
+      const objsHere = Object.keys(objects).filter(function(name) {
+        return objects[name].location === roomName;
+      });
+      const objLines = objsHere.map(function(name) {
+        return name.replace(/_/g, ' ') + ' <span class="tag">' + objects[name].state + '</span>';
+      }).join('<br>');
+
+      html += '<div class="room-card">' +
+        '<div class="room-name">' + roomName.replace(/_/g, ' ') + '</div>' +
+        '<div class="room-conns">' + connLines + '</div>' +
+        (objLines ? '<div class="room-objs">' + objLines + '</div>' : '') +
+        '</div>';
+    });
+    html += '</div>';
+    out.innerHTML = html;
+  }
+
+  function renderJournal(entries) {
+    const out = document.getElementById('journalOutput');
+    if (!entries || entries.length === 0) {
+      out.innerHTML = '<div class="empty-state">No contradictions were recorded — the agent held consistent beliefs throughout the run.</div>';
+      return;
+    }
+
+    let html = '';
+    entries.forEach(function(entry) {
+      html += '<div class="journal-entry">' +
+        '<div class="je-node">' + entry.node.replace(/_/g, ' ') + ' — ' + entry.field + '</div>' +
+        '<div class="je-row">' +
+          '<span class="old-val">' + entry.old_value + '</span>' +
+          '<span class="arrow">&rarr;</span>' +
+          '<span class="new-val">' + entry.new_value + '</span>' +
+        '</div>' +
+        '<div class="je-reason">' + entry.reason + '</div>' +
+        '<div class="je-meta">Believed since step ' + entry.believed_since_step +
+          ' · corrected at step ' + entry.corrected_at_step + '</div>' +
+        '</div>';
+    });
+    out.innerHTML = html;
+  }
+</script>
+</body>
+</html>

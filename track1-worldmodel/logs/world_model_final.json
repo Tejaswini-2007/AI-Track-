@@ -1,0 +1,56 @@
+{
+  "rooms": {
+    "entrance_hall": {
+      "connections": {
+        "north": "kitchen",
+        "east": "garden"
+      },
+      "confidence": 1.0,
+      "last_updated": 6
+    },
+    "kitchen": {
+      "connections": {
+        "south": "entrance_hall",
+        "down": "cellar",
+        "east": "study"
+      },
+      "confidence": 1.0,
+      "last_updated": 8
+    },
+    "garden": {
+      "connections": {
+        "west": "entrance_hall"
+      },
+      "confidence": 1.0,
+      "last_updated": 2
+    },
+    "cellar": {
+      "connections": {
+        "up": "kitchen"
+      },
+      "confidence": 1.0,
+      "last_updated": 6
+    },
+    "study": {
+      "connections": {
+        "west": "kitchen"
+      },
+      "confidence": 1.0,
+      "last_updated": 8
+    }
+  },
+  "objects": {
+    "east_door": {
+      "location": "kitchen",
+      "state": "open",
+      "confidence": 1.0,
+      "last_updated": 7
+    },
+    "brass_key": {
+      "location": "inventory",
+      "state": "in_inventory",
+      "confidence": 1.0,
+      "last_updated": 5
+    }
+  }
+}

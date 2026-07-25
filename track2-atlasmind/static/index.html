@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>AtlasMind</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    background: #0d0509; color: #f5e6ee; margin: 0; height: 100vh;
+    font-family: 'Segoe UI', Arial, sans-serif; display: flex; overflow: hidden;
+  }
+
+  #sidebar {
+    width: 320px; padding: 20px; border-right: 1px solid #2a1220;
+    display: flex; flex-direction: column; gap: 18px; overflow-y: auto;
+    background: #120810;
+  }
+
+  h2 { margin: 0; font-size: 22px; letter-spacing: 0.5px; }
+  h2 span { color: #ff6fb0; text-shadow: 0 0 12px rgba(255,111,176,0.5); }
+  h3 { margin: 0 0 10px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #d888ab; }
+
+  .card { background: #1a0d16; border: 1px solid #3a1a2c; border-radius: 14px; padding: 14px; }
+
+  button {
+    background: linear-gradient(135deg, #ff6fb0, #c94f9e);
+    color: white; border: none; padding: 12px 16px;
+    border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 700; width: 100%;
+    box-shadow: 0 0 14px rgba(255,111,176,0.35);
+    position: relative; z-index: 10;
+  }
+  button:hover { box-shadow: 0 0 20px rgba(255,111,176,0.55); }
+  button.secondary { background: #2a1220; box-shadow: none; color: #f5b8d4; border: 1px solid #4a2038; }
+  button.secondary:hover { background: #3a1a2c; }
+
+  .agent-row { display: flex; align-items: center; gap: 12px; }
+  .avatar {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffb3d9, #ff6fb0 70%);
+    display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;
+    box-shadow: 0 0 16px rgba(255,111,176,0.5);
+  }
+  .agent-room { font-weight: 700; font-size: 15px; color: #ffe0f0; }
+  .agent-turn { font-size: 12px; color: #d888ab; }
+
+  .tag {
+    display: inline-block; background: #2a1220; border: 1px solid #4a2038;
+    padding: 4px 10px; border-radius: 999px; font-size: 12px; margin: 3px 4px 0 0; color: #f5c6de;
+  }
+  .tag.empty { color: #6b3d55; font-style: italic; }
+
+  #compass {
+    display: grid; grid-template-columns: 40px 40px 40px; grid-template-rows: 40px 40px 40px;
+    gap: 5px; justify-content: center; margin-top: 8px;
+  }
+  .dir-cell {
+    display: flex; align-items: center; justify-content: center; font-size: 11px;
+    font-weight: 800; border-radius: 10px; background: #2a1220; color: #5a3348;
+    border: 1px solid #3a1a2c;
+  }
+  .dir-cell.active {
+    background: linear-gradient(135deg, #ff6fb0, #c94f9e); color: white;
+    box-shadow: 0 0 12px rgba(255,111,176,0.6); border: none;
+  }
+  .dir-center { background: transparent; border: none; font-size: 18px; }
+
+  #log { font-size: 12px; line-height: 1.6; color: #d0a0b8; max-height: 240px; overflow-y: auto; }
+  .log-line { margin-bottom: 3px; white-space: pre-wrap; }
+  .log-line.stall { color: #ffb366; }
+
+  #graph { flex: 1; position: relative; background: radial-gradient(circle at 50% 40%, #1a0d16 0%, #0d0509 70%); }
+  #graph-title {
+    position: absolute; top: 16px; left: 20px; z-index: 5;
+    font-size: 12px; color: #6b3d55; letter-spacing: 2px; text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>Atlas<span>Mind</span> &#129433;</h2>
+  <div style="display:flex; gap:8px;">
+    <button id="btn-start">Start Agent</button>
+    <button id="btn-stop" class="secondary">Stop</button>
+  </div>
+
+  <div class="card">
+    <h3>Agent Status</h3>
+    <div class="agent-row">
+      <div class="avatar">&#129433;</div>
+      <div>
+        <div class="agent-room" id="agent-room">-</div>
+        <div class="agent-turn" id="agent-turn">Turn 0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Navigation</h3>
+    <div id="compass">
+      <div class="dir-cell"></div><div class="dir-cell" id="dir-north">N</div><div class="dir-cell"></div>
+      <div class="dir-cell" id="dir-west">W</div><div class="dir-cell dir-center">&#129433;</div><div class="dir-cell" id="dir-east">E</div>
+      <div class="dir-cell"></div><div class="dir-cell" id="dir-south">S</div><div class="dir-cell"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Objects Here</h3>
+    <div id="objects-here"><span class="tag empty">none</span></div>
+  </div>
+
+  <div class="card">
+    <h3>Inventory</h3>
+    <div id="inventory"><span class="tag empty">empty</span></div>
+  </div>
+
+  <div class="card" style="flex:1;">
+    <h3>Agent Log</h3>
+    <div id="log"></div>
+  </div>
+</div>
+
+<div id="graph">
+  <div id="graph-title">World Model</div>
+</div>
+
+<script>
+document.getElementById("btn-start").addEventListener("click", function () {
+  fetch("/api/start", { method: "POST" });
+});
+document.getElementById("btn-stop").addEventListener("click", function () {
+  fetch("/api/stop", { method: "POST" });
+});
+
+function renderTags(elId, items, emptyLabel) {
+  const el = document.getElementById(elId);
+  if (!items || items.length === 0) {
+    el.innerHTML = '<span class="tag empty">' + emptyLabel + '</span>';
+  } else {
+    el.innerHTML = items.map(function (i) { return '<span class="tag">' + i + '</span>'; }).join("");
+  }
+}
+
+async function poll() {
+  const res = await fetch("/api/state");
+  const data = await res.json();
+
+  document.getElementById("agent-room").innerText = data.current_room || "-";
+  document.getElementById("agent-turn").innerText = "Turn " + data.turn;
+
+  ["north", "south", "east", "west"].forEach(function (dir) {
+    const cell = document.getElementById("dir-" + dir);
+    if (data.exits && data.exits.includes(dir)) {
+      cell.classList.add("active");
+    } else {
+      cell.classList.remove("active");
+    }
+  });
+
+  renderTags("objects-here", data.objects_in_room, "none");
+  renderTags("inventory", data.inventory, "empty");
+
+  const logDiv = document.getElementById("log");
+  logDiv.innerHTML = data.log.map(function (l) {
+    const cls = l.includes("stalled") ? "log-line stall" : "log-line";
+    return '<div class="' + cls + '">' + l + '</div>';
+  }).join("");
+  logDiv.scrollTop = logDiv.scrollHeight;
+
+  const nodes = data.graph_nodes.map(function (n) {
+    const isCurrent = n.id === data.current_room;
+    return {
+      id: n.id,
+      label: (n.type === "room" && isCurrent ? "* " : "") + n.id,
+      color: {
+        background: n.type === "room" ? (isCurrent ? "#ff6fb0" : "#c94f9e") : "#ffb3d9",
+        border: n.type === "room" ? "#ffb3d9" : "#ff8fc4"
+      },
+      shape: "dot",
+      size: n.type === "room" ? (isCurrent ? 30 : 24) : 16,
+      borderWidth: isCurrent ? 3 : 1,
+      font: { color: "#fff0f7", size: 14 }
+    };
+  });
+
+  const edges = data.graph_edges.map(function (e) {
+    return {
+      from: e.source, to: e.target, label: e.relation,
+      arrows: "to", color: "#5a3348", font: { color: "#d888ab", size: 10, strokeWidth: 0 }
+    };
+  });
+
+  network.setData({ nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) });
+}
+
+const container = document.getElementById("graph");
+const network = new vis.Network(container, { nodes: [], edges: [] }, {
+  physics: { stabilization: true, barnesHut: { gravitationalConstant: -8000 } },
+  nodes: { font: { color: "#fff0f7" } },
+  interaction: { hover: true }
+});
+
+setInterval(poll, 1000);
+</script>
+
+</body>
+</html>
